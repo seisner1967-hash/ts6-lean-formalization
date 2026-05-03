@@ -1,0 +1,103 @@
+# TS6 v4.1 — Lean 4 GREEN CONDITIONAL Freeze Manifest
+# Date: 2026-05-03
+#
+# All five TS6 modules are now Lean-closed without sorry.
+# The effective layer (TS6-E/F/G) is GREEN CONDITIONAL: closed conditionally
+# on a typed LargeSieveInequality interface, which TS6 does not itself prove.
+
+## Build environment
+
+Lean toolchain: leanprover/lean4:v4.16.0
+Mathlib revision: a6276f4c6097675b1cf5ebd49b1146b735f38c02
+Build command: lake build TS6
+Build status: SUCCESS
+Build duration: 2.65 s
+
+## Audit
+
+Audit tool: horizon-proof-agent v0.1.4
+Audit report: reports/report_20260503T124108Z.md
+
+## Source snapshot for these hashes
+
+Branch (now merged): close/averaged-bounds-green-conditional
+Freeze commit: 516962b — Close AveragedBounds GREEN conditional: typed LargeSieve interface + Chebyshev cascade
+Mainline reference: main now at 516962b after fast-forward merge of the branch.
+
+## Status table (v4.1)
+
+TS6-A FiniteCharacterVariance.lean       GREEN              0 sorry
+TS6-B DirichletVariance.lean             GREEN              0 sorry
+TS6-C CenteringShift.lean                GREEN              0 sorry
+TS6-D RankinSelbergDecomp.lean           GREEN              0 sorry
+TS6-E/F/G AveragedBounds.lean            GREEN CONDITIONAL  0 sorry
+
+Primary REAL sorry:    0
+Primary REAL axiom:    0
+sorryAx in cascade:    NONE
+
+## Output of #print axioms (TS6.Effective theorems)
+
+'TS6.Effective.TS4_weighted_effective_bound' depends on axioms:
+  [propext, Classical.choice, Quot.sound]
+
+'TS6.Effective.TS4_unweighted_effective_bound' depends on axioms:
+  [propext, Classical.choice, Quot.sound]
+
+'TS6.Effective.TS3_first_effective_bound' depends on axioms:
+  [propext, Classical.choice, Quot.sound]
+
+Note: only Lean kernel axioms (propext, Classical.choice, Quot.sound).
+No user-added axioms. No sorryAx.
+
+## File hashes (SHA-256, Windows working tree CRLF)
+
+Note: SHA-256 computed on Windows working-tree (CRLF line endings).
+Same content hashed on Git-canonical (LF) form will differ; both representations
+verify the same commit (516962b).
+
+D0D1EA1B29F472D9B0218D82E0366FBD652A50BF8FFCB434A203FDB34B2C5E7E  TS6/Exact/FiniteCharacterVariance.lean
+295B8787C4387BB30E23D85B207EBAE044E72183B0C7BB0319693DDE093753AA  TS6/Exact/DirichletVariance.lean
+03565E12872E755E3F8D29A46CEAF740821B7DA341A22B97DF6CAED0B6ECBBEB  TS6/Exact/CenteringShift.lean
+6785F4E9A577AB4E0CBEB2B2D1D84730A41D30FF917443407ECB202F778BE281  TS6/Structure/RankinSelbergDecomp.lean
+2F96186AAC8DAD4D48894C38BCDECD1DAE24C294E57A66B293E659BD6A34E089  TS6/Effective/AveragedBounds.lean
+53572FECC7CCD7D71075098DADC040CDD10E8FC2BBBFC7201FE094A5040D2E6E  lakefile.lean
+38E1DB7F371DCB49F3C83DDD2A7B9298C71455DC8F86E5605BB4C1E269863E45  lean-toolchain
+937116C07834B50698BAD963A7416F5526463A2B665EA424B0515995E3048A92  lake-manifest.json
+
+## Important epistemic note
+
+TS6 v4.1 does NOT prove the Large Sieve inequality.
+
+The structure LargeSieveInequality is intentionally uninhabited within TS6:
+its single field `bound` is the typed l2-form interface to the large sieve,
+to be supplied externally (either from a future Mathlib release exposing
+Iwaniec-Kowalski Theorem 7.13, or via an external proof bridge).
+
+The three effective theorems (TS4_weighted, TS4_unweighted, TS3_first) are
+Lean theorems in the strict kernel sense (no sorryAx, no user axioms),
+closed *conditionally* on instances of LargeSieveInequality and
+ChebyshevThetaBound being supplied as arguments.
+
+The trajectory v4 -> v4.1:
+- v4: 3 sorrys in AveragedBounds.lean classified YELLOW BY-DESIGN
+- v4.1: 0 sorry; conditionality reified as a typed structure argument.
+
+## Trajectory of the day (2026-05-03)
+
+8 -> 7 -> 6 -> 5 -> 4 -> 3 -> 0 primary REAL sorrys
+
+Commits (chronological):
+  828e60e Snapshot initial
+  655908b Close AUX1 in schur_orthogonality_dual
+  afaae39 Close AUX2 in schur_orthogonality_dual
+  80ab482 Close diag_offdiag_split
+  a5e2b84 Close rankin_selberg_decomposition
+  8ac750f Add private lemmas for parseval_identity
+  4f2000d Close parseval_identity
+  cd22e48 Session bilan 2026-05-03
+  36685bb Freeze TS6 v4 (YELLOW BY-DESIGN)
+  b6d3257 Clarify v4 freeze manifest
+  2abc093 Add TS6 v4 LaTeX document
+  8b14291 Revise TS6 v4 LaTeX
+  516962b Close AveragedBounds GREEN conditional [TS6 v4.1 reached]

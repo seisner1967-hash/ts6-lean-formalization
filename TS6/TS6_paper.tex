@@ -1,0 +1,339 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+% \usepackage{lmodern}  % not installed in sandbox; default fonts used
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{listings}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+  showstringspaces=false,
+  keepspaces=true,
+  aboveskip=1ex,
+  belowskip=1ex,
+}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\AWs}{\mathcal{A}_W^\star}
+\newcommand{\AWP}{\mathcal{A}_W^{\mathrm{PNT}}}
+\newcommand{\CW}{\mathcal{C}_W}
+\newcommand{\DW}{\mathcal{D}_W}
+\newcommand{\SW}{\mathcal{S}_W}
+\newcommand{\Theta}{\Theta_W}
+\newcommand{\What}{\widehat{W}}
+\newcommand{\bphi}{\varphi}
+
+\title{TS6 --- Lean 4 Formalization Layer\\
+for the TS Programme on the Smoothed Prime Variance}
+\author{Serge Durand}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This short note is the dedicated formalization layer of the TS programme
+(TS1--TS5) on the empirically-centered variance of smoothed prime sums in
+arithmetic progressions. TS6 formalizes, in Lean 4 over Mathlib4, the four
+purely algebraic identities that constitute the exact kernel of the
+programme: the abstract Parseval identity on a finite abelian group, its
+specialization to $(\mathbb Z/q\mathbb Z)^\times$, the centering-shift
+identity, and the Rankin--Selberg decomposition. The effective layer
+(TS3, TS4) is scaffolded conditionally on two named hypothesis structures
+(large sieve, effective Chebyshev) that Mathlib4 does not yet provide; no
+\texttt{axiom} is used anywhere. TS6 is delivered here in YELLOW status:
+every Lean statement is precisely typed and its proof plan is documented,
+but the proof-term bodies remain \texttt{sorry} because the sandbox in
+which this note was produced does not permit installation of a Lean
+toolchain. Closing the exact-kernel \texttt{sorry}s to reach GREEN is a
+routine exercise of a few hours in a live Mathlib4 environment. This note
+states the scope, the architecture, the target theorems, the current
+limits, and the reproducibility instructions.
+\end{abstract}
+
+\section{Scope}\label{sec:scope}
+
+The TS programme (TS1--TS5) organizes results about the quantity
+\[
+\AWs(x,q)
+ \;:=\; \sum_{\substack{a = 1 \\ (a,q) = 1}}^{q}
+  \bigl|\theta_W(x; q, a) - \bar\theta_W(x, q)\bigr|^{2},
+\]
+the empirically-centered variance of the smoothed prime sum
+$\theta_W(x; q, a) = \sum_{p \equiv a \,(q)} (\log p)\, W(p/x)$ across
+invertible residue classes modulo $q$. The programme's three layers are:
+
+\begin{itemize}[leftmargin=2em,nosep]
+\item[\textbf{Exact.}] $\AWs(x,q) = \CW(x,q)$ for every integer
+  $q \ge 2$, and the centering-shift identity relating $\AWP$ to $\CW$.
+\item[\textbf{Effective.}] $\sum_{q \le Q,\, q\text{ prime}} \AWs(x,q)
+  \le 2\lVert W\rVert_\infty^{2}\,(Q^{2}+2x)\, x\log(2x)$ via the large
+  sieve and Chebyshev.
+\item[\textbf{Open.}] Three asymptotic questions, precisely scoped.
+\end{itemize}
+
+TS6 targets \emph{only} the exact layer of that classification. The aim is
+to obtain a Lean 4 formal certificate that the four exact identities hold,
+as a final piece of documentation for the programme.
+
+\smallskip
+
+\noindent\textbf{What this note does not do.}
+TS6 is deliberately narrow. It does not formalize the empirical
+observations of TS1 \S5 or TS5 \S3 (regression fits, the factor-5
+diagonal-overshoot observation). It does not attempt to close the effective
+layer: the large sieve inequality and the effective Chebyshev bound
+$\vartheta(y) \le 2y$ are not presently in Mathlib4 in the required form,
+and TS6 refuses to discharge them by \texttt{axiom}. It does not formalize
+any of the three open problems of TS5 \S5. These exclusions are stated
+here once and enforced throughout.
+
+\section{Exact kernel in Lean 4}\label{sec:exact}
+
+The central targets are named TS6-A through TS6-D.
+
+\subsection*{TS6-A --- Abstract Parseval on a finite abelian group}
+
+Let $G$ be a finite abelian group and $f : G \to \mathbb C$. Define the
+empirical mean $\mu(f) = |G|^{-1} \sum_{g} f(g)$, the variance
+$\mathrm{Var}(f) = \sum_{g} |f(g) - \mu(f)|^{2}$, the Fourier coefficient
+$\widehat f(\chi) = \sum_{g} f(g)\,\overline{\chi(g)}$, and the
+non-principal character-side mean square
+$\widehat C(f) = |G|^{-1} \sum_{\chi \ne 1} |\widehat f(\chi)|^{2}$.
+
+\begin{theorem}[TS6-A, abstract Parseval identity]\label{thm:A}
+For every finite abelian group $G$ and every $f : G \to \mathbb C$,
+\[
+\mathrm{Var}(f) \;=\; \widehat C(f).
+\]
+\end{theorem}
+
+The proof is the standard one-line expansion using Schur orthogonality on
+$G$. The Lean target is the file \texttt{TS6/Exact/FiniteCharacterVariance.lean},
+which imports \texttt{Mathlib.NumberTheory.MulChar.Basic} and uses the
+lemma \texttt{MulChar.sum\_apply\_eq\_zero\_iff} for non-trivial characters.
+
+\subsection*{TS6-B --- Modular specialization}
+
+Specializing Theorem~\ref{thm:A} to $G = (\mathbb Z/q\mathbb Z)^\times$
+and $f(r) = \theta_W(x; q, r)$ (viewed as a function of a class) yields:
+
+\begin{theorem}[TS6-B, exact identity for general $q$, TS2 Thm 2.1]
+\label{thm:B}
+For every integer $q \ge 2$, every $x > 0$, and every bounded weight $W$
+with compact support in $(0, \infty)$,
+\[
+\AWs(x, q) \;=\; \CW(x, q).
+\]
+\end{theorem}
+
+The Lean target is \texttt{TS6/Exact/DirichletVariance.lean}. The proof
+is a direct application of TS6-A through the bijection
+$\mathrm{MulChar}\,(\mathbb Z/q)^\times\,\mathbb C \;\longleftrightarrow\;
+\mathrm{DirichletCharacter}\,\mathbb C\, q$.
+
+\subsection*{TS6-C --- Centering-shift identity}
+
+The centering-shift identity compares the empirical-mean centering to the
+PNT-predicted centering $x \What(1)/\bphi(q)$.
+
+\begin{theorem}[TS6-C, centering-shift identity, TS2 Prop 2.2]
+\label{thm:C}
+Under the hypotheses of Theorem~\ref{thm:B},
+\[
+\AWP(x, q) - \CW(x, q)
+  \;=\; \frac{\bigl|\Theta(x, \chi_0) - x\,\What(1)\bigr|^{2}}{\bphi(q)}.
+\]
+\end{theorem}
+
+The proof is pure shift-of-origin for the variance of a finite sequence:
+$\sum_{r} |t_r - \mu|^{2} = \sum_{r} |t_r - \bar t|^{2} + |G|\,|\bar t - \mu|^{2}$,
+applied at $\mu = x \What(1)/\bphi(q)$ and combined with Theorem~\ref{thm:B}.
+The Lean target is \texttt{TS6/Exact/CenteringShift.lean}.
+
+\subsection*{TS6-D --- Rankin--Selberg decomposition}
+
+Writing $a_p = (\log p)\,W(p/x)$ and
+$T_{0}(x, q) = \sum_{(p, q) = 1} a_{p}$, define the diagonal
+$\DW(x, q) = \sum_{(p, q) = 1} |a_{p}|^{2}$ and the off-diagonal
+\[
+\SW_{q}(x) \;=\; \sum_{\substack{p_{1} \ne p_{2} \\
+  p_{1} \equiv p_{2}\,(q) \\ (p_{1} p_{2}, q) = 1}}
+  a_{p_{1}}\,\overline{a_{p_{2}}}.
+\]
+
+\begin{theorem}[TS6-D, Rankin--Selberg decomposition, TS5 Prop 3.7]
+\label{thm:D}
+For every integer $q \ge 2$,
+\[
+\AWs(x, q) \;=\; \DW(x, q) - \frac{|T_{0}(x, q)|^{2}}{\bphi(q)}
+  + \SW_{q}(x).
+\]
+\end{theorem}
+
+This identity is the algebraic output of expanding $\CW$ via the
+character-sum form of Theorem~\ref{thm:B} and splitting the resulting
+prime-pair double sum into $p_{1} = p_{2}$ (diagonal) vs.
+$p_{1} \ne p_{2}$ (off-diagonal) contributions, subtracting the
+principal-character square. The Lean target is
+\texttt{TS6/Structure/RankinSelbergDecomp.lean}. No analytic input is
+used: the identity is structural.
+
+\section{Modular specialization in code}\label{sec:modular}
+
+The core of TS6-B in Lean has the following shape (simplified):
+
+\begin{lstlisting}
+variable (q : N) [NeZero q] (a : N -> C) (S : Finset N)
+
+noncomputable def theta (r : (ZMod q)^x) : C :=
+  sum n in S, if (n : ZMod q) = (r : ZMod q) then a n else 0
+
+noncomputable def theta_bar : C :=
+  (sum r : (ZMod q)^x, theta a q S r) / (totient q : C)
+
+noncomputable def AWstar : R :=
+  sum r : (ZMod q)^x, norm (theta a q S r - theta_bar a q S)^2
+
+noncomputable def CW : R :=
+  (1 / (totient q : R)) *
+    sum chi in (univ : Finset (DirichletCharacter C q)).filter (. ne 1),
+      norm (sum n in S, a n * chi n)^2
+
+theorem TS6_B_exact_identity
+  (hq : 2 <= q) : AWstar a q S = CW a q S := by
+  -- specialize parseval_identity to G = (ZMod q)^x
+  -- carry coefficients through the MulChar ~ DirichletCharacter bijection
+  sorry
+\end{lstlisting}
+
+The single \texttt{sorry} is the specialization step: every piece is in
+place to push Theorem~\ref{thm:A} through the isomorphism and rename.
+
+\section{Centering-shift in code}\label{sec:shift}
+
+TS6-C is packaged as a separate module because it depends on TS6-B but is
+otherwise pure linear algebra over $\mathbb C$. The core shift-of-origin
+lemma is this:
+
+\begin{lstlisting}
+-- For any finite-indexed complex sequence (t_i) and any target mu in C,
+--   sum i, ||t i - mu||^2
+--     = sum i, ||t i - (sum j, t j)/|I|||^2  +  |I| * ||mu - (avg)||^2.
+lemma variance_shift_of_origin
+  {I : Type*} [Fintype I] (t : I -> C) (mu : C) :
+  sum i, norm (t i - mu)^2 =
+    sum i, norm (t i - (sum j, t j) / (Fintype.card I : C))^2
+    + (Fintype.card I : R) *
+        norm (mu - (sum j, t j) / (Fintype.card I : C))^2 := by
+  ring_nf  -- after expanding norms via star multiplication
+  sorry
+\end{lstlisting}
+
+TS6-C follows by instantiating this at
+$I = (\mathbb Z/q)^\times$, $t_r = \theta_W(x; q, r)$, and
+$\mu = x \What(1)/\bphi(q)$, then using TS6-B to replace the first sum on
+the right by $\CW(x, q)$ and computing the second term as
+$|\Theta(x, \chi_0) - x \What(1)|^{2}/\bphi(q)$.
+
+\section{Current limits of formalization}\label{sec:limits}
+
+TS6 does \emph{not} claim to have closed any Lean proof in the current
+session: \textbf{the Lean 4 toolchain is not available in the environment
+where this paper is produced}. Every statement in the Lean files
+\texttt{TS6/Exact/FiniteCharacterVariance.lean},
+\texttt{TS6/Exact/DirichletVariance.lean},
+\texttt{TS6/Exact/CenteringShift.lean}, and
+\texttt{TS6/Structure/RankinSelbergDecomp.lean} is typed and its proof
+sketch is documented in a comment block, but the proof-term bodies are
+\texttt{sorry}. No \texttt{axiom} is used anywhere. The statements are
+proof-plan-complete; the tactic scripts to close them are routine in a
+live Mathlib4 environment and are marked as future work.
+
+The effective-layer statements in
+\texttt{TS6/Effective/AveragedBounds.lean} are conditional on two typed
+hypothesis structures \texttt{LargeSieveInequality} and
+\texttt{ChebyshevThetaBound} --- not \texttt{axiom}s --- and will remain
+so until those inputs land in Mathlib4.
+
+\smallskip
+
+\noindent\textbf{Summary table.}
+\begin{center}
+\begin{tabular}{lllc}
+\toprule
+Target & TS1--5 source & Lean file & Current status \\
+\midrule
+TS6-A & kernel for TS1, TS2 & \texttt{Exact/FiniteCharacterVariance} & YELLOW \\
+TS6-B & TS2 Thm 2.1 & \texttt{Exact/DirichletVariance} & YELLOW \\
+TS6-C & TS2 Prop 2.2 & \texttt{Exact/CenteringShift} & YELLOW \\
+TS6-D & TS5 Prop 3.7 & \texttt{Structure/RankinSelbergDecomp} & YELLOW \\
+TS6-E & TS3 Thm 1.1 & \texttt{Effective/AveragedBounds} & YELLOW (by design) \\
+TS6-F & TS4 Thm 1.1 & \texttt{Effective/AveragedBounds} & YELLOW (by design) \\
+TS6-G & TS4 Cor 1.2 & \texttt{Effective/AveragedBounds} & YELLOW (by design) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+YELLOW means: statement typed, proof plan written, no \texttt{axiom},
+\texttt{sorry} explicit. The target for a subsequent session with a Lean
+toolchain available is GREEN on TS6-A through TS6-D. TS6-E through
+TS6-G stay YELLOW until Mathlib supplies the two missing analytic
+inputs; they will not become GREEN in any near-term TS6 iteration.
+
+\section{Reproducibility / build instructions}\label{sec:repro}
+
+To verify or extend this formalization layer in a live Lean environment:
+
+\begin{enumerate}[nosep,leftmargin=2em]
+\item Install \texttt{elan} and Lean 4 per the
+  \href{https://leanprover-community.github.io/}{leanprover-community}
+  install guide.
+\item Create a Mathlib-based Lean project with \texttt{lake new TS6 math}.
+\item Copy the \texttt{lean/TS6/} directory of this bundle into
+  \texttt{TS6/TS6/} inside the new project.
+\item Add \texttt{import TS6.Exact.FiniteCharacterVariance} (and the three
+  other main files) to the project's root file.
+\item Run \texttt{lake build}. Each \texttt{sorry} will be flagged; closing
+  them is the formalization work.
+\end{enumerate}
+
+The hash manifest \texttt{TS6\_FROZEN.txt} in the bundle records the
+SHA-256 hash of each file in TS6 as released.
+
+\section*{Labels and honesty}
+
+All claims in this note are labelled by their logical type, consistent with
+the TS programme's discipline:
+
+\begin{itemize}[nosep,leftmargin=2em]
+\item Theorems TS6-A, TS6-B, TS6-C, TS6-D are \textbf{exact identities}.
+  Their proofs in the paper setting are part of TS1--TS5 and are
+  independently verified there at machine precision on 672 prime-$q$ and
+  126 composite-$q$ triples (see TS1 \S5 and TS2 \S4 of the merged
+  bundle). Their Lean formalization status is YELLOW as described.
+\item TS6-E, TS6-F, TS6-G are \textbf{effective theorems} whose
+  paper-side proofs are in TS3 and TS4, and whose Lean status is YELLOW
+  by design pending Mathlib upgrades.
+\item No \textbf{empirical observation} or \textbf{open problem} is
+  formalized or referenced by TS6.
+\end{itemize}
+
+TS6 does not close the TS programme: the asymptotic law for $\AWs$ remains
+the programme's principal open question. TS6 locks the exact-kernel
+identities at the level of typed Lean statements with documented proof
+plans, producing a certified index of what the TS programme's formal
+backbone looks like.
+
+\end{document}

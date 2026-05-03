@@ -1,0 +1,18 @@
+# Lean build artifacts
+.lake/
+.build/
+*.olean
+*.ilean
+*.c
+*.o
+*.so
+*.dll
+*.dylib
+
+# Python
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store
+Thumbs.db

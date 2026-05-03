@@ -1,0 +1,113 @@
+================================================================================
+TS6 FROZEN MANIFEST — v4
+================================================================================
+
+Date         : 2026-05-03
+Repository   : goldbach_lean_v2
+Branch       : main
+
+Source snapshot before Phase 2H (semantic baseline):
+  cd22e48 — Session bilan 2026-05-03: TS6-A and TS6-D closed, lakefile cleaned
+
+Freeze commit (file SHA-256 below correspond to this commit's working tree):
+  36685bb — Freeze TS6 v4: exact and spectral layers GREEN, effective bounds YELLOW BY-DESIGN
+
+Toolchain    : leanprover/lean4:v4.16.0
+Mathlib rev  : a6276f4c6097675b1cf5ebd49b1146b735f38c02  (input: v4.16.0)
+
+Audit tool   : horizon-proof-agent v0.1.4 (profile: ts6)
+Last report  : reports/report_20260503T081636Z.md
+Build status : SUCCESS (`lake build TS6`)
+REAL sorry primary : 3  (all in TS6/Effective/AveragedBounds.lean, BY-DESIGN)
+Axioms added by TS6 : 0
+
+--------------------------------------------------------------------------------
+SHA-256 — TS6 source files (7 files in build closure)
+--------------------------------------------------------------------------------
+
+Note: SHA-256 below are computed on the Windows working-tree (CRLF line endings).
+The same content hashed on Git-canonical (LF) form will differ; both representations
+verify the same commit (36685bb).
+
+TS6/Exact/FiniteCharacterVariance.lean
+  D0D1EA1B29F472D9B0218D82E0366FBD652A50BF8FFCB434A203FDB34B2C5E7E
+
+TS6/Exact/DirichletVariance.lean
+  295B8787C4387BB30E23D85B207EBAE044E72183B0C7BB0319693DDE093753AA
+
+TS6/Exact/CenteringShift.lean
+  03565E12872E755E3F8D29A46CEAF740821B7DA341A22B97DF6CAED0B6ECBBEB
+
+TS6/Structure/RankinSelbergDecomp.lean
+  6785F4E9A577AB4E0CBEB2B2D1D84730A41D30FF917443407ECB202F778BE281
+
+TS6/Effective/AveragedBounds.lean
+  7015FAB47D078835E3EC70D95BF9EF1590D592D996780719FC0A55FE5E8779BB
+
+lakefile.lean
+  53572FECC7CCD7D71075098DADC040CDD10E8FC2BBBFC7201FE094A5040D2E6E
+
+lean-toolchain
+  38E1DB7F371DCB49F3C83DDD2A7B9298C71455DC8F86E5605BB4C1E269863E45
+
+--------------------------------------------------------------------------------
+Per-module status (TS6 v4)
+--------------------------------------------------------------------------------
+
+| Module                                   | TS6 layer | Status            |
+|------------------------------------------|-----------|-------------------|
+| Exact/FiniteCharacterVariance.lean       | TS6-A     | GREEN             |
+| Exact/DirichletVariance.lean             | TS6-B     | GREEN             |
+| Exact/CenteringShift.lean                | TS6-C     | GREEN             |
+| Structure/RankinSelbergDecomp.lean       | TS6-D     | GREEN             |
+| Effective/AveragedBounds.lean            | TS6-E/F/G | YELLOW BY-DESIGN  |
+
+Exact (A,B,C) and spectral (D) layers are fully formalized: no sorry, no axiom.
+Effective layer (E,F,G) is conditional on the LargeSieveInequality interface.
+
+--------------------------------------------------------------------------------
+YELLOW conditions (TS6-E/F/G)
+--------------------------------------------------------------------------------
+
+The 3 remaining sorrys are all located in TS6/Effective/AveragedBounds.lean and
+they all reduce to the same root cause: `LargeSieveInequality.bound : True` is
+currently a vacuous placeholder. This is intentional and is documented inline.
+
+Reason for the placeholder:
+  - The full primitive Dirichlet character API (induction, conductor, primitive
+    decomposition) and the analytic large-sieve inequality (Montgomery–Vaughan,
+    or the variant for short Dirichlet polynomials) are not exposed in
+    Mathlib v4.16.0 in a form usable as a black-box hypothesis here.
+  - Closing these 3 sorrys would require either (i) building that API in TS6
+    itself (out of scope for the present formal kernel) or (ii) waiting for an
+    upstream Mathlib release that exposes a usable interface.
+  - The TS6 paper marks TS6-E/F/G as YELLOW (by design) for the same reason.
+
+Promotion path to GREEN (future Mathlib releases):
+  - When a usable `LargeSieveInequality` becomes available, replace the
+    placeholder structure in AveragedBounds.lean with the genuine bound and
+    discharge the 3 sorrys via the named hypotheses already laid out.
+  - The `ChebyshevThetaBound` interface (θ(y) ≤ 2 y) is already usable as is.
+
+Honesty note:
+  - No `axiom` is added by TS6 itself (all transitive axioms come from Mathlib).
+  - The 3 sorrys are not hidden behind `decide`, tactic-replay, or pp tricks:
+    they are explicit `sorry` markers tagged `-- BY-DESIGN` in the source.
+
+--------------------------------------------------------------------------------
+Reproducibility
+--------------------------------------------------------------------------------
+
+  $ git clone <repo-url> goldbach_lean_v2
+  $ cd goldbach_lean_v2
+  $ git checkout cd22e48
+  $ lake exe cache get      # fetch Mathlib build cache (recommended)
+  $ lake build TS6          # builds the 5 TS6 modules above
+
+Audit (read-only, separate tool):
+  $ cd <horizon-proof-agent>
+  $ python -m proof_agent --full --profile ts6 --build-timeout 300
+
+Expected: Build SUCCESS, REAL sorry primary = 3 (all in AveragedBounds.lean).
+
+================================================================================
