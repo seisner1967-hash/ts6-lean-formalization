@@ -1,0 +1,886 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{tikz}
+\usepackage{caption}
+\usepackage{float}
+
+% =============================================================
+% ARXIV METADATA ABSTRACT (~150 words, for submission form)
+% =============================================================
+% We report TS6 v4.1, a Lean 4 certification layer for exact, spectral, and
+% conditional effective Dirichlet-character variance identities. The four exact
+% and spectral modules --- FiniteCharacterVariance, DirichletVariance,
+% CenteringShift, and RankinSelbergDecomp --- are closed in Lean without sorry
+% and without user-added axioms. The effective module AveragedBounds is closed
+% conditionally: its TS3/TS4 bounds are proved from explicit typed analytic
+% interfaces, ChebyshevThetaBound and LargeSieveInequality. The latter is not
+% proved in TS6; it is an external interface for a future large-sieve
+% formalization. The final audit reports lake build TS6 success, zero primary
+% REAL sorrys, zero user axioms, and no sorryAx in the effective cascade.
+% TS6 v4.1 does not prove the Large Sieve inequality, Goldbach's conjecture,
+% or any conjecture of the TS programme.
+% =============================================================
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  urlcolor=blue!50!black,
+  citecolor=blue!50!black,
+  pdftitle={TS6 v4.1 - Lean 4 Certification of the Exact, Spectral, and Conditional Effective Dirichlet-Character Variance Layers},
+  pdfauthor={Serge Durand},
+  pdfsubject={Lean 4 formalization, analytic number theory},
+  pdfkeywords={Lean 4, Mathlib, Dirichlet characters, variance identities, Rankin-Selberg, Plancherel, large sieve, formalization}
+}
+
+% --- Theorem environments ---
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+
+% --- Macros ---
+\newcommand{\AWs}{A_W^{\star}}
+\newcommand{\CWq}{C_W}
+\newcommand{\DWq}{D_W}
+\newcommand{\SWq}{S_W}
+\newcommand{\ThetaW}{\Theta_W}
+\newcommand{\What}{\widehat{W}}
+\newcommand{\bphi}{\overline{\varphi}}
+\newcommand{\GREEN}{\textcolor{green!50!black}{\textbf{GREEN}}}
+\newcommand{\GREENC}{\textcolor{green!50!black}{\textbf{GREEN CONDITIONAL}}}
+\newcommand{\YELLOW}{\textcolor{orange!80!black}{\textbf{YELLOW}}}
+\newcommand{\YELLOWBD}{\textcolor{orange!80!black}{\textbf{YELLOW BY-DESIGN}}}
+
+% --- Listings setup ---
+\definecolor{leanbg}{rgb}{0.97,0.97,0.97}
+\definecolor{leankw}{rgb}{0.0,0.0,0.6}
+\definecolor{leancomment}{rgb}{0.4,0.4,0.4}
+\definecolor{leanstring}{rgb}{0.6,0.0,0.0}
+
+\lstdefinelanguage{Lean}{
+  morekeywords={theorem,lemma,def,structure,inductive,class,instance,
+    where,by,let,have,fun,if,then,else,match,with,intro,refine,
+    apply,exact,show,obtain,use,constructor,cases,induction,
+    simp,rw,ring,ring_nf,linarith,nlinarith,omega,decide,
+    namespace,end,open,import,variable,private,protected,
+    noncomputable,unsafe,partial,mutual,attribute,local,sorry},
+  morecomment=[l]{--},
+  morecomment=[s]{/-}{-/},
+  morestring=[b]",
+  sensitive=true
+}
+
+\lstset{
+  language=Lean,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{leankw}\bfseries,
+  commentstyle=\color{leancomment}\itshape,
+  stringstyle=\color{leanstring},
+  backgroundcolor=\color{leanbg},
+  frame=single,
+  rulecolor=\color{black!30},
+  framesep=4pt,
+  breaklines=true,
+  breakatwhitespace=false,
+  showstringspaces=false,
+  columns=fullflexible,
+  keepspaces=true,
+  numbers=none,
+  xleftmargin=0pt,
+  xrightmargin=0pt
+}
+
+% --- Custom title section ---
+\title{
+  \vspace{-1cm}
+  \Large\textbf{TS6 v4.1 --- Lean 4 Certification of the Exact,\\
+  Spectral, and Conditional Effective\\
+  Dirichlet-Character Variance Layers}\\[0.3cm]
+  \large\textit{Full formal closure of TS6-A/B/C/D and conditional closure of TS6-E/F/G\\via a typed Large Sieve interface}
+}
+\author{Serge Durand\\
+  \small Independent research project --- TS Programme\\
+  \small Lean 4 toolchain v4.16.0, Mathlib v4.16.0\\
+  \small \texttt{\href{https://github.com/seisner1967-hash/ts6-lean-formalization}{github.com/seisner1967-hash/ts6-lean-formalization}}}
+\date{2026-05-03 (v4.1, revision 2.1)}
+
+% --- Document ---
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent We report the closure of all five modules of the TS6 Lean~4 certification layer for the exact, spectral, and conditional effective Dirichlet-character variance identities of the TS programme. In version v4.1, the four exact and spectral modules (\texttt{Fini\-te\-Char\-act\-er\-Var\-iance}, \texttt{DirichletVariance}, \texttt{CenteringShift}, \texttt{RankinSelbergDecomp}) are \GREEN{}: closed in Lean without \texttt{sorry} and without added axioms. The fifth module (\texttt{AveragedBounds}) is \textbf{GREEN-conditional}: its three effective theorems \verb|TS4_weighted|, \verb|TS4_unweighted|, \verb|TS3_first| are closed in Lean conditionally on a typed \verb|LargeSieveInequality| interface and a \verb|ChebyshevThetaBound| interface. The conditionality is reified as structure arguments rather than hidden behind \texttt{sorry} placeholders; \verb|#print axioms| on the three effective theorems shows only Lean kernel axioms (\verb|propext|, \verb|Classical.choice|, \verb|Quot.sound|), with no \verb|sorryAx|.
+
+\smallskip
+
+\noindent The \verb|LargeSieveInequality| structure is intentionally uninhabited within TS6: an instance must be supplied externally, either from a future Mathlib release exposing Iwaniec--Kowalski Theorem~7.13 or from an external proof bridge. TS6 v4.1 therefore does not prove the Large Sieve inequality, nor does it prove Goldbach's conjecture or any conjecture of the TS programme; it certifies the implication chain from explicit analytic interfaces to the effective bounds.
+
+\smallskip
+
+\noindent Compared with TS6 v3 (2026-04-22), v4.1 closes the previously open Plancherel/Parseval kernel of \texttt{FiniteCharacterVariance}, the Rankin--Selberg decomposition of \texttt{RankinSelbergDecomp}, and the entire effective layer of \texttt{AveragedBounds}, while making the analytic boundary structurally explicit. The development is reproducible under Lean~4 v4.16.0 and Mathlib v4.16.0 (commit \verb|a6276f4c|) via \verb|lake build TS6|, with file SHA-256 hashes recorded in the freeze manifest \verb|TS6_FROZEN_v4.1_2026-05-03.txt|. Source code, manifest, and audit reports are publicly archived at \url{https://github.com/seisner1967-hash/ts6-lean-formalization}, tag \verb|v4.1|.
+\end{abstract}
+
+\tableofcontents
+
+\bigskip
+\hrule
+\bigskip
+
+% =============================================================
+\section{Introduction}
+% =============================================================
+
+The TS programme (TS1--TS5) develops an empirically-centered variance identity for smoothed prime indicators over arithmetic progressions, and a chain of effective bounds and spectral decompositions built on that identity. TS6 is not a new mathematical layer of that programme; rather, it is a \emph{certification layer}: a Lean~4 project whose role is to formalize and machine-verify the central exact statements and their immediate spectral and effective consequences.
+
+The present document records version v4.1 of that certification layer:
+\begin{itemize}[noitemsep]
+\item \textbf{v2.2} (2026-04-21) reported a partial formalization framework with four remaining algebraic obligations.
+\item \textbf{v3} (2026-04-22) closed the two central exact identities \verb|TS1_exact_identity| (prime modulus) and \verb|TS2_exact_identity| (general $q \geq 2$).
+\item \textbf{v4} (2026-05-03 morning) closed the Rankin--Selberg decomposition (TS6-D) and the Plancherel/Parseval kernel (TS6-A), bringing the count of fully certified modules to four; the effective layer remained YELLOW by-design.
+\item \textbf{v4.1} (2026-05-03 freeze, this document) closes the effective layer (TS6-E/F/G) as GREEN-conditional via a typed \verb|LargeSieveInequality| interface, eliminating all primary \texttt{sorry}s from the TS6 source.
+\end{itemize}
+
+The headline change in v4.1 is therefore not the addition of new mathematical content but a structural one: the analytic boundary that v3 and v4 documented as a textual ``BY-DESIGN'' comment is now reified as a typed Lean structure, statically enforced by the type system. The three effective theorems pass \verb|#print axioms| with only Lean kernel axioms; the conditionality, formerly hidden behind \texttt{sorry}, is now visible in their signature.
+
+\smallskip
+
+\noindent\emph{Throughout this document, ``closure'' refers to Lean closure of the TS6 certification layer, not to an unconditional proof of the analytic inputs represented by the typed interfaces.}
+
+The rest of this paper is organized as follows. Section~\ref{sec:scope} delimits what TS6 v4.1 does and does not claim and presents the updated top-level status table. Section~\ref{sec:changed} documents the closures from v3 to v4 to v4.1, in six labeled sub-sections corresponding to the six closed obligations. Section~\ref{sec:exact-core} states the certified exact theorems and explains why they constitute the central closure. Sections~\ref{sec:rs} and~\ref{sec:parseval} describe the closure of Rankin--Selberg and Parseval/Plancherel respectively. Section~\ref{sec:effective} describes the GREEN-conditional closure of the effective layer. Section~\ref{sec:limits} states the current limits of the formalization, including the conditions for promotion to GREEN unconditional. Section~\ref{sec:audit} records the machine audit, and Section~\ref{sec:repro} gives reproducibility data. Section~\ref{sec:gain} describes the methodological gains. Section~\ref{sec:conclusion} concludes.
+
+% =============================================================
+\section{Scope and Status of TS6 v4.1}\label{sec:scope}
+% =============================================================
+
+\subsection{What TS6 v4.1 is}
+
+TS6 v4.1 is a Lean~4 project that certifies five layers of the TS programme:
+\begin{itemize}[noitemsep]
+\item the two exact identities $\AWs = \CWq$ for $q$ prime (TS1) and $q \geq 2$ general (TS2);
+\item the centering-shift identity (Huygens decomposition);
+\item the Plancherel/Parseval identity for finite abelian groups;
+\item the Rankin--Selberg decomposition;
+\item three effective TS3/TS4 bounds, conditionally on typed analytic interfaces.
+\end{itemize}
+
+The certification of the first four is unconditional in the sense that no Lean axiom is introduced beyond those already present in Mathlib v4.16.0, and no \texttt{sorry} remains in the corresponding files. The fifth (effective bounds) is GREEN-conditional: closed in Lean without \texttt{sorry}, but parameterized by a typed \verb|LargeSieveInequality| structure that TS6 itself does not inhabit.
+
+\subsection{What TS6 v4.1 is not}
+
+TS6 v4.1 is not, and does not claim to be:
+\begin{itemize}[noitemsep]
+\item a complete formalization of TS1--TS5;
+\item a formalization of the TG programme;
+\item a proof of the Large Sieve inequality (this remains an external analytic input, now reified as a typed structure);
+\item a proof of the Chebyshev $\theta$-bound (also external);
+\item a proof of Goldbach's conjecture or the Riemann Hypothesis.
+\end{itemize}
+
+\subsection{Top-level status table}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}llcc@{}}
+\toprule
+\textbf{Module / file} & \textbf{Layer} & \textbf{v4.1 status} & \textbf{REAL sorry} \\
+\midrule
+\verb|Exact/FiniteCharacterVariance.lean| & TS6-A & \GREEN & 0 \\
+\verb|Exact/DirichletVariance.lean| & TS6-B & \GREEN & 0 \\
+\verb|Exact/CenteringShift.lean| & TS6-C & \GREEN & 0 \\
+\verb|Structure/RankinSelbergDecomp.lean| & TS6-D & \GREEN & 0 \\
+\verb|Effective/AveragedBounds.lean| & TS6-E/F/G & \GREENC & 0 \\
+\bottomrule
+\end{tabular}
+\caption{TS6 v4.1 module status: four modules GREEN unconditional, one GREEN conditional. All five close in Lean without \texttt{sorry}. The effective layer is closed conditionally on instances of the typed external interfaces \texttt{ChebyshevThetaBound} and \texttt{LargeSieveInequality}; the latter is intentionally uninhabited within TS6.}\label{tab:status-v41}
+\end{table}
+
+\medskip
+\noindent\emph{GREEN CONDITIONAL} means closed in Lean without \texttt{sorry}, relative to explicit analytic interfaces. It does not mean the Large Sieve inequality is itself proved within TS6.
+
+\subsection{Build summary}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Lean version & \texttt{leanprover/lean4:v4.16.0} \\
+Mathlib version & \texttt{v4.16.0} (commit \texttt{a6276f4c}) \\
+Build command & \texttt{lake build TS6} \\
+Build status & SUCCESS (2.65 s) \\
+Errors & 0 \\
+Added axioms & 0 \\
+Primary REAL \texttt{sorry} & 0 \\
+\verb|sorryAx| in cascade & NONE \\
+\bottomrule
+\end{tabular}
+\caption{TS6 v4.1 build summary. Local development freeze at commit \texttt{7899dde}; public archival release at commit \texttt{02a6ffa}, tag \texttt{v4.1}.}\label{tab:build-v41}
+\end{table}
+
+% =============================================================
+\section{What changed: v3 \texorpdfstring{$\to$}{->} v4 \texorpdfstring{$\to$}{->} v4.1}\label{sec:changed}
+% =============================================================
+
+This section documents the six closures that bring TS6 from v3 to v4.1, in chronological order of the freeze. Each closure is presented with its mathematical role, its Lean strategy, and the corresponding Git commit.
+
+\subsection{AUX1: \texttt{star (chi b) = (chi b)\(^{-1}\)} via root-of-unity argument}
+
+\textbf{Role.} In the dual Schur orthogonality lemma \verb|schur_orthogonality_dual|, one needs the identity $\overline{\chi(b)} = \chi(b)^{-1}$ for $\chi : \mathrm{MulChar}\,G\,\mathbb{C}$ and $b \in G$, where $G$ is a finite abelian group.
+
+\textbf{Strategy.} Mathlib's \verb|MulChar.star_apply'| is blocked by a \verb|[CommRing R]| constraint that does not hold for $R = G$ (a multiplicative \verb|CommGroup|). The closure uses a manual root-of-unity argument: $\chi(b)^{|G|} = \chi(b^{|G|}) = \chi(1) = 1$, hence $\|\chi(b)\| = 1$, hence $\overline{\chi(b)} = \chi(b)^{-1}$.
+
+\textbf{Git.} Commit \verb|655908b|. Approximately 16 lines of Lean.
+
+\subsection{AUX2: dual Schur orthogonality on \texttt{MulChar G C}}
+
+\textbf{Role.} The dual orthogonality identity
+\[
+  \sum_{\chi : \mathrm{MulChar}\,G\,\mathbb{C}} \chi(g) =
+  \begin{cases} |G| & \text{if } g = 1, \\ 0 & \text{otherwise,}\end{cases}
+\]
+required for the Rankin--Selberg decomposition.
+
+\textbf{Strategy.} Mathlib has the analogous statement for \verb|DirichletCharacter R q| at \verb|Mathlib/NumberTheory/DirichletCharacter/Orthogonality.lean:65|, but not directly for \verb|MulChar G C|. The closure adapts that proof, mobilizing \verb|MulChar.exists_apply_ne_one_of_hasEnoughRootsOfUnity| (Duality.lean:53) and providing an instance of \verb|HasEnoughRootsOfUnity C n| via \verb|IsAlgClosed.hasEnoughRootsOfUnity|. The card\-inality bookkeeping uses \verb|MulChar.card_eq_card_units_of_hasEnoughRootsOfUnity|.
+
+\textbf{Git.} Commit \verb|afaae39|. Approximately 22 lines of Lean.
+
+\subsection{\texttt{diag\_offdiag\_split}: diagonal/off-diagonal decomposition}
+
+\textbf{Role.} The double sum appearing in the Rankin--Selberg decomposition,
+\[
+  \sum_{m,n \in S}\!\![\mathrm{Coprime}(m,q) \wedge \mathrm{Coprime}(n,q) \wedge (m \equiv n \bmod q)]\,a_m \overline{a_n},
+\]
+splits as $(\DWq : \mathbb{C}) + \SWq$, where the diagonal piece $\DWq$ contains the $m = n$ contributions and the off-diagonal piece $\SWq$ contains $m \neq n$.
+
+\textbf{Strategy.} Two private lemmas (\verb|diag_part_eq_DW| and \verb|offdiag_part_eq_SW|) handle each piece, then \verb|Finset.sum_filter_add_sum_filter_not S (... = m)| recombines them. Coercion management between $\mathbb{R}$ and $\mathbb{C}$ uses \verb|Complex.ofReal_sum| and the auxiliary identity \verb|normSq_cast_eq_mul_conj|.
+
+\textbf{Git.} Commit \verb|80ab482|. Approximately 70 lines of Lean.
+
+\subsection{\texttt{rankin\_selberg\_decomposition}: assembly of the spectral decomposition}
+
+\textbf{Role.} The main theorem of TS6-D,
+\begin{equation}\label{eq:rs-main}
+  \AWs(a, q, S) = \DWq(a, q, S) - \frac{|T_0|^2}{\varphi(q)} + \mathrm{Re}\bigl(\SWq(a, q, S)\bigr),
+\end{equation}
+where $T_0 = \sum_r \theta(a, q, S, r)$.
+
+\textbf{Strategy.} A private lemma \verb|CW_eq_complex_decomp| performs steps 2--6 of the proof plan in $\mathbb{C}$ (isolation of the principal character via \verb|filter_ne_one_eq_total_sub_one|, application of \verb|sum_all_twistSum_sq| (RS\_L2), application of \verb|diag_offdiag_split| (RS\_L3), and \verb|field_simp; ring|). The final theorem then takes real parts via \verb|congr_arg Complex.re|, \verb|Complex.div_natCast_re|, the inverse direction of \verb|Complex.ofReal_pow|, and \verb|Complex.ofReal_re|.
+
+\textbf{Note.} The v3 paper statement of the Rankin--Selberg decomposition omitted the explicit $\mathrm{Re}$; the v4 statement includes it because the right-hand side of the theorem lives in $\mathbb{R}$ while the off-diagonal sum $\SWq$ lives in $\mathbb{C}$. The $\mathrm{Re}$ extraction is performed in the final assembly step.
+
+\textbf{Git.} Commit \verb|a5e2b84|. Approximately 57 lines of Lean.
+
+\subsection{\texttt{parseval\_identity}: Plancherel for finite abelian groups}
+
+\textbf{Role.} Parseval/Plancherel identity for $f : G \to \mathbb{C}$ with $G$ a finite abelian group:
+\[
+  \mathrm{variance}(f) = \mathrm{characterSideMS}(f) = \frac{1}{|G|} \sum_{\chi \neq 1} \bigl|\widehat{f}(\chi)\bigr|^2.
+\]
+This identity is \emph{not directly available in Mathlib v4.16.0} under the signature used here (with $\mathrm{MulChar}\,G\,\mathbb{C}$ as the dual side; Mathlib has the corresponding statement for additive characters into the unit circle, with a different formalism).
+
+\textbf{Strategy.} Decomposed into four private lemmas:
+\begin{enumerate}[noitemsep]
+\item \verb|variance_eq_sum_sq_minus_card_meanSq| (König--Huygens identity) via \verb|Complex.normSq_sub|;
+\item \verb|fourierCoeff_one_normSq| via \verb|MulChar.one_apply| and \verb|Group.isUnit|;
+\item \verb|sum_fourierCoeff_normSq_eq_card_mul_sum_normSq| via a local copy of \verb|schur_orthogonality_dual| (the FCV ambient instances differ from those of RSD; consolidating into a shared upstream module is logged as future work), followed by a double \verb|Finset.sum_comm| and a Schur orthogonality collapse;
+\item \verb|sum_filter_ne_one_eq_total_sub_real| (real-valued helper analogous to the complex helper from \texttt{rankin\_selberg\_decomposition}).
+\end{enumerate}
+The main theorem assembles the four lemmas and concludes with \verb|field_simp; ring|.
+
+\textbf{Git.} Commits \verb|8ac750f| (preparatory lemmas) and \verb|4f2000d| (main theorem). Approximately 141 lines of Lean total.
+
+\subsection{Closure of \texttt{AveragedBounds} as GREEN-conditional (v4 \texorpdfstring{$\to$}{->} v4.1)}\label{sec:ab-closure}
+
+\textbf{Role.} The three effective theorems \verb|TS4_weighted_effective_bound|, \verb|TS4_unweighted_effective_bound|, and \verb|TS3_first_effective_bound| of TS6-E/F/G, conditional on instances of \verb|ChebyshevThetaBound| and \verb|LargeSieveInequality|.
+
+\textbf{Strategy.} In version v4, the file \verb|AveragedBounds.lean| carried three placeholder \texttt{sorry}s, classified as YELLOW by-design, because the structure \verb|LargeSieveInequality| held only the trivial field \verb|bound : True|. Version v4.1 upgrades this layer in three steps:
+
+\begin{enumerate}
+\item \textbf{Typed Large Sieve interface.} The structure \verb|LargeSieveInequality| is replaced by a single field \verb|bound| carrying the $\ell^2$-form inequality
+\[
+  \mathrm{weightedPrimeCappedSum}(a, Q, S) \leq (Q^2 + 2x) \cdot \mathrm{coeffEnergy}(a, S),
+\]
+for sequences $a : \mathbb{N} \to \mathbb{C}$ supported in a finite set $S$ of indices bounded by $2x$. The new auxiliary definition $\mathrm{coeffEnergy}(a, S) = \sum_{n \in S} \|a_n\|^2$ separates the character-side control (Large Sieve) from the coefficient-side control (Chebyshev). The structure is intentionally uninhabited within TS6.
+
+\item \textbf{Coefficient energy bound (Chebyshev side).} A private lemma \verb|coeffEnergy_weightCoeffs_le| bounds
+\[
+  \mathrm{coeffEnergy}\bigl(\mathrm{weightCoeffs}(W, x), S\bigr) \leq 4 \cdot \mathrm{WsupNormSq}(W) \cdot x \cdot \log(2x)
+\]
+using \verb|ChebyshevThetaBound| together with the support estimate of $W$ on $[1/2, 2]$ and the prime-counting trick $(\log p)^2 \leq \log(2x) \cdot \log p$.
+
+\item \textbf{Cascade closure.} The three effective theorems are then closed by composition:
+  \begin{itemize}[noitemsep]
+  \item \verb|TS4_weighted| from \verb|LargeSieveInequality.bound| and \verb|coeffEnergy_weightCoeffs_le|;
+  \item \verb|TS4_unweighted| from \verb|TS4_weighted| via the pointwise scaling $\AWs \leq (q/2) \cdot \AWs$ for $q \geq 2$ and \verb|AWstar_nonneg|;
+  \item \verb|TS3_first| from \verb|TS4_unweighted| via the trivial monotonicity $X \leq 4C$ when $X \leq 2C$ and $C \geq 0$.
+  \end{itemize}
+\end{enumerate}
+
+\textbf{Audit.} \verb|#print axioms| on the three closed theorems reports only the Lean kernel axioms \verb|propext|, \verb|Classical.choice|, \verb|Quot.sound|. No user-introduced axiom is added by TS6, and no \verb|sorryAx| is transmitted through the cascade.
+
+\textbf{Git.} Commit \verb|516962b|. Approximately 200 lines of Lean (including the typed interface, the energy bound, and three cascade proofs).
+
+% =============================================================
+\section{Certified Exact Core: TS1 and TS2}\label{sec:exact-core}
+% =============================================================
+
+\subsection{Formal statement}
+
+Let $q \geq 2$, $S \subset \mathbb{N}$ finite, $a : \mathbb{N} \to \mathbb{C}$ a weight, and $r \in (\mathbb{Z}/q\mathbb{Z})^\times$. Define the local prime sum
+\[
+  \theta(a, q, S, r) = \sum_{\substack{n \in S \\ n \equiv r \pmod q}} a_n,
+\]
+the empirical mean
+\[
+  \bar\theta(a, q, S) = \frac{1}{\varphi(q)} \sum_{r \in (\mathbb{Z}/q\mathbb{Z})^\times} \theta(a, q, S, r),
+\]
+and the empirically-centered variance
+\[
+  \AWs(a, q, S) = \sum_{r \in (\mathbb{Z}/q\mathbb{Z})^\times} \bigl|\theta(a, q, S, r) - \bar\theta(a, q, S)\bigr|^2.
+\]
+Let $\CWq(a, q, S)$ denote the character-side sum, namely $1/\varphi(q)$ times the sum of $\|\mathrm{twistSum}(a, q, S, \chi)\|^2$ over non-principal Dirichlet characters modulo $q$.
+
+\begin{theorem}[TS1, $q$ prime --- certified]\label{thm:TS1}
+For every prime modulus $q$, every finite $S \subset \mathbb{N}$, and every weight $a : \mathbb{N} \to \mathbb{C}$,
+\[
+  \AWs(a, q, S) = \CWq(a, q, S).
+\]
+\end{theorem}
+
+\begin{theorem}[TS2, $q \geq 2$ --- certified]\label{thm:TS2}
+For every integer $q \geq 2$, every finite $S \subset \mathbb{N}$, and every weight $a : \mathbb{N} \to \mathbb{C}$,
+\[
+  \AWs(a, q, S) = \CWq(a, q, S).
+\]
+\end{theorem}
+
+\subsection{Lean signatures (\texttt{DirichletVariance.lean})}
+
+\begin{lstlisting}
+theorem TS2_exact_identity
+    (a : N -> C) (q : N) (hq : 2 <= q) (S : Finset N) :
+    AWstar a q S = CW a q S := by
+  -- Bloc A: AWstar = variance (theta a q S)
+  -- Bloc B: variance = characterSideMS (via parseval)
+  -- Bloc C: characterSideMS = CW (via mulchar_dirichlet_equiv)
+  ...
+
+theorem TS1_exact_identity
+    (a : N -> C) (q : N) (hq : q.Prime) (S : Finset N) :
+    AWstar a q S = CW a q S :=
+  TS2_exact_identity a q hq.two_le S
+\end{lstlisting}
+
+The bijection between \verb|MulChar (ZMod q)^x C| and \verb|DirichletCharacter C q| used in Bloc~C is constructed as a noncomputable definition out of three standard Mathlib equivalences:
+
+\begin{lstlisting}
+noncomputable def mulchar_dirichlet_equiv (q : N) [NeZero q] :
+    MulChar (ZMod q)^x C ~ DirichletCharacter C q :=
+  MulChar.equivToUnitHom.trans
+    ((MulEquiv.monoidHomCongr (toUnits (G := (ZMod q)^x)).symm
+      (MulEquiv.refl C^x)).toEquiv.trans
+    MulChar.equivToUnitHom.symm)
+\end{lstlisting}
+
+\subsection{Why this is the central closure}
+
+TS1 and TS2 are the exact identities on which every later layer of the TS programme rests. The Rankin--Selberg decomposition (TS5, formalized as TS6-D) applies the same character-side expansion with a different grouping of terms; the effective bounds (TS3, TS4, formalized as TS6-E/F/G) control $\AWs$ on average via $\CWq$; the centering-shift (TS6-C) expresses a Huygens-type decomposition that reduces to TS2 after one rewrite. Closing TS1 and TS2 in Lean therefore certifies the pivot of the programme.
+
+% =============================================================
+\section{Rankin--Selberg decomposition (TS6-D)}\label{sec:rs}
+% =============================================================
+
+\subsection{The decomposition}
+
+\begin{theorem}[Rankin--Selberg --- certified]\label{thm:rs}
+For every $q \geq 2$, every finite $S \subset \mathbb{N}$, and every weight $a : \mathbb{N} \to \mathbb{C}$,
+\[
+  \AWs(a, q, S) = \DWq(a, q, S) - \frac{|T_0|^2}{\varphi(q)} + \mathrm{Re}\bigl(\SWq(a, q, S)\bigr),
+\]
+where $T_0 = \sum_r \theta(a, q, S, r)$, and $\DWq$, $\SWq$ are the standard Rankin--Selberg-type double sums.
+\end{theorem}
+
+\subsection{Lean signature and structure}
+
+\begin{lstlisting}
+theorem rankin_selberg_decomposition
+    (a : N -> C) (q : N) [NeZero q] (hq : 2 <= q) (S : Finset N) :
+    AWstar a q S =
+      DW a q S - (Complex.normSq (T_0 a q S)) / (Nat.totient q : R) + (SW a q S).re := by
+  rw [TS2_exact_identity a q hq S]
+  have hcomplex := CW_eq_complex_decomp a q S
+  have h := congr_arg Complex.re hcomplex
+  simp only [Complex.add_re, Complex.sub_re, Complex.div_natCast_re,
+             Complex.ofReal_re] at h
+  linarith [h]
+\end{lstlisting}
+
+The proof relies on three private lemmas: \verb|CW_eq_complex_decomp| (the assembly in $\mathbb{C}$), \verb|diag_part_eq_DW| and \verb|offdiag_part_eq_SW| (the diagonal and off-diagonal pieces of the double sum), and the dual Schur orthogonality \verb|schur_orthogonality_dual| with its two auxiliary lemmas (root-of-unity and Mathlib-Duality adaptation).
+
+\subsection{Why v3 was quasi-GREEN}
+
+In v3, three obligations remained open in \verb|RankinSelbergDecomp.lean|:
+\begin{itemize}[noitemsep]
+\item \verb|L2_SCHUR_DUAL_CORE|, decomposed into AUX1 and AUX2;
+\item \verb|RS_L3| (\verb|diag_offdiag_split|), the combinatorial split;
+\item \verb|rankin_selberg_decomposition| itself, the final orchestration.
+\end{itemize}
+All three are now closed in v4.1, as documented in Sections~\ref{sec:changed}.1, \ref{sec:changed}.2, \ref{sec:changed}.3, \ref{sec:changed}.4. The file is \GREEN{}: 0 sorry.
+
+% =============================================================
+\section{Plancherel/Parseval kernel (TS6-A)}\label{sec:parseval}
+% =============================================================
+
+\subsection{The identity}
+
+\begin{theorem}[Parseval/Plancherel for finite abelian groups --- certified]\label{thm:parseval}
+For every finite abelian group $G$ and every $f : G \to \mathbb{C}$,
+\[
+  \mathrm{variance}(f) = \mathrm{characterSideMS}(f),
+\]
+where $\mathrm{variance}(f) = \sum_{g \in G} |f(g) - \mathrm{mean}(f)|^2$ and
+\[
+  \mathrm{characterSideMS}(f) = \frac{1}{|G|} \sum_{\chi \neq 1} \bigl|\widehat{f}(\chi)\bigr|^2,
+  \quad \widehat{f}(\chi) = \sum_{g} f(g) \overline{\chi(g)}.
+\]
+\end{theorem}
+
+\subsection{Why v3 was YELLOW and v4 closes it}
+
+The v3 paper noted that this identity ``is logically independent of the closure of TS1 and TS2'' --- the dependency graph of \verb|DirichletVariance.lean| does not pass through it. Nonetheless, closing it is desirable for two reasons: it removes the only remaining \texttt{sorry} on a primary file outside the by-design effective layer, and it provides a generic Plancherel kernel reusable in other parts of the development.
+
+The closure proceeds via four private lemmas listed in Section~\ref{sec:changed}.5. The hardest step is \verb|sum_fourierCoeff_normSq_eq_card_mul_sum_normSq|, which performs the double sum manipulation
+\[
+  \sum_{\chi} \bigl|\widehat{f}(\chi)\bigr|^2 = \sum_{\chi} \sum_{g, h} f(g) \overline{f(h)} \overline{\chi(g)} \chi(h) = \sum_{g, h} f(g) \overline{f(h)} \!\!\!\sum_{\chi} \overline{\chi(g)} \chi(h)
+\]
+and collapses the inner sum via dual Schur orthogonality to $|G| \cdot [g = h]$, leaving $|G| \sum_g |f(g)|^2$. This is \emph{not directly available in Mathlib v4.16.0} under this signature: Mathlib has Pontryagin duality for additive characters into the unit circle, but the multiplicative-character form on $\mathrm{MulChar}\,G\,\mathbb{C}$ used here required a manual proof.
+
+% =============================================================
+\section{Conditional effective bounds (TS6-E/F/G)}\label{sec:effective}
+% =============================================================
+
+\subsection{The three effective theorems}
+
+The file \verb|AveragedBounds.lean| carries three theorems controlling sums of $\AWs$ over prime moduli, each parameterized by typed external interfaces:
+
+\begin{lstlisting}
+theorem TS4_weighted_effective_bound
+    (chebyshev : ChebyshevThetaBound) (largeSieve : LargeSieveInequality)
+    (Wi : WeightInput) (x : R) (Q : N) (S : Finset N)
+    (hx : 2 <= x) (hQ : 2 <= Q)
+    (hS : forall p in S, p.Prime /\ x/2 <= p /\ (p : R) <= 2*x) :
+    weightedPrimeCappedSum (weightCoeffs Wi.W x) Q S <=
+      4 * WsupNormSq Wi.W * ((Q : R)^2 + 2*x) * x * Real.log (2*x)
+\end{lstlisting}
+
+The unweighted variant divides the bound by $2$, and the first-effective variant relaxes it to $4C$ from $2C$.
+
+\subsection{The typed Large Sieve interface}
+
+The structural change of v4.1 is that \verb|LargeSieveInequality| is now a typed structure:
+
+\begin{lstlisting}
+/-- Interface: large sieve inequality, packaged for prime moduli.
+    The structure is intentionally uninhabited within TS6: an
+    instance must be supplied by the caller, either from a future
+    Mathlib release or from an external proof bridge. -/
+structure LargeSieveInequality where
+  bound :
+    forall (a : N -> C) (x : R) (Q : N) (S : Finset N),
+      2 <= x ->
+      (forall n in S, ((n : R) <= 2*x)) ->
+      weightedPrimeCappedSum a Q S <=
+        ((Q : R)^2 + 2*x) * coeffEnergy a S
+\end{lstlisting}
+
+The companion definition $\mathrm{coeffEnergy}(a, S) = \sum_{n \in S} \|a_n\|^2$ is the $\ell^2$-norm of the coefficient sequence on $S$; it separates the character-side control (carried by the typed Large Sieve) from the coefficient-side control (carried by Chebyshev's $\theta$-bound).
+
+\subsection{The Chebyshev side}
+
+The Chebyshev structure remains as in v3:
+
+\begin{lstlisting}
+structure ChebyshevThetaBound where
+  bound : forall (y : R), 2 <= y ->
+    (sum p in (Finset.range (floor y + 1)).filter Nat.Prime, Real.log p) <= 2*y
+\end{lstlisting}
+
+The proof of \verb|coeffEnergy_weightCoeffs_le| --- bounding $\mathrm{coeffEnergy}$ on the specific sequence $\mathrm{weightCoeffs}(W, x)$ --- mobilizes \verb|chebyshev.bound| together with the support estimate of $W$ on $[1/2, 2]$ and the elementary inequality $(\log p)^2 \leq \log(2x) \cdot \log p$ for $p \in [x/2, 2x]$.
+
+\subsection{The cascade}
+
+\begin{lstlisting}
+-- TS4_weighted: from largeSieve.bound + coeffEnergy_weightCoeffs_le.
+-- TS4_unweighted: from TS4_weighted via AWstar_nonneg + (q/2) >= 1.
+-- TS3_first: from TS4_unweighted via 2C <= 4C when C >= 0.
+\end{lstlisting}
+
+Each step of the cascade is a few lines of Lean: \verb|nlinarith| or \verb|mul_le_mul_of_nonneg_left| usually suffices once the positivity of the relevant factor is established.
+
+\subsection{Why \texttt{LargeSieveInequality} is uninhabited}
+
+Constructing a mathematically natural instance of \verb|LargeSieveInequality| would amount to formalizing an appropriate prime-moduli $\ell^2$-form of the large sieve inequality, after the collapse $q/\varphi(q) \cdot \sum^*_{\chi} = q$ for prime $q$ which uses TS2 and the principal-character cancellation. This is a substantial result of analytic number theory closely related to standard formulations (cf.\ Iwaniec--Kowalski, \emph{Analytic Number Theory}, Theorem~7.13), which is \emph{not currently exposed in Mathlib v4.16.0} under the form required here. The TS6 interface is specialized to the prime-moduli case and to a specific positivity/support structure on the coefficient sequence; an inhabitant could come from a future Mathlib release, from an external proof bridge, or from an ad hoc derivation tailored to TS6. TS6 v4.1 does not attempt any of these; it formalizes the implication chain ``Large Sieve interface $\Rightarrow$ effective bounds'' and leaves the construction of an instance to a future development.
+
+% =============================================================
+\section{Current limits of formalization}\label{sec:limits}
+% =============================================================
+
+\subsection{The reified analytic boundary}
+
+The structures \verb|LargeSieveInequality| and \verb|ChebyshevThetaBound| are the formal interfaces to the two external analytic inputs. TS6 v4.1 does not provide an inhabitant of either: both must be supplied by a caller. The \texttt{ChebyshevThetaBound} interface is in principle inhabitable from Mathlib's existing prime-counting layer (Mertens-style estimates exist in \verb|Mathlib.NumberTheory.Mertens|), but this construction is not part of TS6. The \verb|LargeSieveInequality| interface is genuinely external: no version of the prime-moduli $\ell^2$-form is currently exposed in Mathlib v4.16.0.
+
+\subsection{Why the conditionality is not hidden}
+
+A naive alternative would have been to close the second and third effective theorems (\verb|TS4_unweighted|, \verb|TS3_first|) by cascade from \verb|TS4_weighted| while leaving \verb|TS4_weighted| itself with a \texttt{sorry}. This would have reduced the visible \texttt{sorry} count from three to one, but at the cost of transmitting \verb|sorryAx| through the cascade: \verb|#print axioms| on \verb|TS3_first| would have shown \verb|sorryAx| as a transitive dependency.
+
+The chosen design avoids this cosmetic improvement. By reifying the analytic input as a typed structure, we guarantee that:
+\begin{itemize}[noitemsep]
+\item the three effective theorems are closed by Lean's kernel without \verb|sorryAx|;
+\item their dependency on the analytic input is statically visible in their signature as a structure argument;
+\item supplying an instance of the structure --- once Mathlib makes one available --- closes all three theorems unconditionally with no further modification of TS6.
+\end{itemize}
+
+\subsection{Conditions for promotion to GREEN unconditional}
+
+Promotion of the effective layer from GREEN-conditional to GREEN unconditional requires either:
+\begin{enumerate}[noitemsep]
+\item A future Mathlib release exposing the prime-moduli $\ell^2$-form of the large-sieve inequality, sufficient to construct an instance of \verb|LargeSieveInequality|; together with an instance of \verb|ChebyshevThetaBound| from Mathlib's prime-counting layer; or
+\item An ad hoc proof of either or both inequalities written specifically for TS6, supplied as a separate Lean module that constructs the instances.
+\end{enumerate}
+Either path is outside the scope of the present version.
+
+% =============================================================
+\section{Machine audit}\label{sec:audit}
+% =============================================================
+
+The TS6 source is audited by an external Python tool, \verb|horizon-proof-agent v0.1.4|, which scans Lean files for \texttt{sorry}/\texttt{admit}/\texttt{axiom}/\texttt{unsafe} patterns after stripping comments and strings. The tool also runs \verb|lake build TS6| and captures stdout/stderr.
+
+\medskip
+
+\noindent\emph{The audit tool is not a proof assistant. Lean is the verifier. The tool reports the state of the Lean project and guards against stale headers, stale claims, and untracked proof obligations.}
+
+\medskip
+
+The final audit report \verb|report_20260503T124108Z.md| confirms:
+\begin{itemize}[noitemsep]
+\item Build status: SUCCESS (2.65~s);
+\item Primary REAL \texttt{sorry}: 0;
+\item Primary REAL axiom declarations: 0;
+\item No \verb|sorryAx| in the cascade of effective theorems.
+\end{itemize}
+
+The output of \verb|#print axioms| on the three GREEN-conditional theorems is reproduced verbatim:
+\begin{lstlisting}
+'TS6.Effective.TS4_weighted_effective_bound' depends on axioms:
+  [propext, Classical.choice, Quot.sound]
+'TS6.Effective.TS4_unweighted_effective_bound' depends on axioms:
+  [propext, Classical.choice, Quot.sound]
+'TS6.Effective.TS3_first_effective_bound' depends on axioms:
+  [propext, Classical.choice, Quot.sound]
+\end{lstlisting}
+
+These are the three standard Lean kernel axioms (propositional extensionality, classical choice, quotient soundness), used internally throughout Mathlib. No \verb|sorryAx| appears, confirming that the effective theorems are truly Lean-closed conditionally on their structure arguments.
+
+% =============================================================
+\section{Reproducibility}\label{sec:repro}
+% =============================================================
+
+\subsection{Environment}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Component} & \textbf{Value} \\
+\midrule
+Lean toolchain & \texttt{leanprover/lean4:v4.16.0} \\
+Mathlib revision & \texttt{a6276f4c6097675b1cf5ebd49b1146b735f38c02} (v4.16.0) \\
+Build tool & \texttt{lake} \\
+Build command & \texttt{lake build TS6} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Public archive}
+
+Source code, freeze manifests (\texttt{TS6\_FROZEN\_v4\_2026-05-03.txt} for v4 and \texttt{TS6\_FROZEN\_v4.1\_2026-05-03.txt} for v4.1), and audit reports are publicly available at:
+\begin{center}
+\url{https://github.com/seisner1967-hash/ts6-lean-formalization}
+\end{center}
+The state described in this document corresponds to tag \verb|v4.1| on that repository. We distinguish two related commit identifiers:
+\begin{itemize}[noitemsep]
+\item \verb|7899dde| --- final commit of the local development repository (\texttt{goldbach\_lean\_v2}), where the closure trajectory of Section~\ref{sec:repro}.3 was carried out.
+\item \verb|02a6ffa| --- initial commit of the public archival repository (\texttt{ts6-lean-formalization}), a clean export of the v4.1 state, tagged \verb|v4.1|.
+\end{itemize}
+The two commits correspond to the same Lean source state for the five TS6 modules; the public repository excludes scratch files, internal logs, and the obsolete v4 LaTeX draft, retaining only what is needed for independent reproduction (Lean sources, manifests, audit report, README, and licenses).
+
+\subsection{Git trajectory of the closure}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Commit} & \textbf{Description} \\
+\midrule
+\verb|828e60e| & Snapshot before closures \\
+\verb|655908b| & AUX1 closed (root of unity) \\
+\verb|afaae39| & AUX2 closed (Mathlib MulChar.Duality adaptation) \\
+\verb|80ab482| & \verb|diag_offdiag_split| closed \\
+\verb|a5e2b84| & \verb|rankin_selberg_decomposition| closed \\
+\verb|8ac750f| & Parseval Steps 1+3 prepared \\
+\verb|4f2000d| & \verb|parseval_identity| complete \\
+\verb|cd22e48| & Session bilan + lakefile cleanup \\
+\verb|36685bb| & Freeze TS6 v4 (YELLOW BY-DESIGN) \\
+\verb|b6d3257| & Clarify v4 freeze manifest \\
+\verb|2abc093| & Add TS6 v4 LaTeX document (later superseded) \\
+\verb|8b14291| & Revise TS6 v4 LaTeX (later superseded) \\
+\verb|516962b| & \textbf{Close \texttt{AveragedBounds} GREEN-conditional} \\
+\verb|806acad| & Freeze TS6 v4.1 \\
+\verb|7899dde| & Update session bilan: Phase 3 reached \\
+\verb|02a6ffa| & Initial public release of TS6 v4.1 (GitHub) \\
+\bottomrule
+\end{tabular}
+\caption{Trajectory of the v3 $\to$ v4 $\to$ v4.1 closure session (2026-05-03).}\label{tab:git-trajectory}
+\end{table}
+
+\subsection{Trajectory of REAL sorry counts}
+
+The closure session reduced the primary REAL \texttt{sorry} count along the following trajectory:
+\[
+  8 \to 7 \to 6 \to 5 \to 4 \to 4 \to 3 \to 0,
+\]
+where each arrow corresponds to a single closure (the duplicated 4 reflects a partial Parseval commit before the full closure). The final value 0 corresponds to the GREEN-conditional state: all primary \texttt{sorry}s have been replaced by genuine proofs, with the remaining conditionality reified as typed structure arguments.
+
+% =============================================================
+\section{Methodological gain}\label{sec:gain}
+% =============================================================
+
+\subsection{Detection of latent error in v3}
+
+The v3 paper documented that the formalization detected and forced the correction of a latent error in an intermediate pointwise step in the TS2 proof: an originally stated norm equality
+\[
+  |\widehat{\theta}(\chi)| \stackrel{?}{=} |\mathrm{twistSum}(a, q, S, \chi)|
+\]
+turned out to be false at the complex level; the correct intermediate statement involves character inversion,
+\[
+  \widehat{\theta}(\chi) = \mathrm{twistSum}(a, q, S, \chi^{-1}),
+\]
+with the norm identity following as a corollary. We retain this observation here, as it remains the most striking instance of the formalization functioning as a logical audit rather than a passive transcription.
+
+\subsection{Further methodological gain in v4.1: typing the analytic boundary}
+
+Beyond the closures of v4 (Rankin--Selberg, Parseval/Plancherel), version v4.1 contributes a small but precise methodological observation. The original v4 design carried the conditionality of the effective layer as three \texttt{sorry} placeholders, classified textually as ``BY-DESIGN'' in source comments. Although correct in spirit, this design has a weakness: the conditionality is documented but not statically enforced --- a reader unfamiliar with the convention could miss the comment, or a refactoring could silently broaden a placeholder beyond its intended scope.
+
+Version v4.1 replaces this textual discipline by a structural one: the analytic input is reified as a Lean structure type, and its dependency appears in the signature of every theorem that uses it. This makes the conditionality \emph{checked by the type system} rather than enforced by documentation. The gain is small but cumulative: every future refinement of TS6, and every external proof bridge that supplies an instance, will automatically respect the boundary.
+
+The technique is not novel; it is the standard Lean idiom for ``the next theorem assumes a typed external input''. We record it here because, in the context of an analytic-number-theoretic Lean development, the temptation to use \texttt{sorry} as a soft placeholder is strong, and the structural alternative is sometimes overlooked.
+
+\subsection{Other methodological observations}
+
+Three principles recurred throughout the v4 and v4.1 work:
+
+\textbf{Paper before Lean.} The proof blocs that closed quickly are those that had been verified end-to-end on paper before any tactic was typed. The single instance in which this rule was broken (during the AUX2 attempt) led to a failed scratch that cost roughly thirty minutes; the subsequent paper-first version closed in fifteen.
+
+\textbf{Decomposition of obligations.} Every closure of substantial size in this session was decomposed into named sub-obligations: AUX1+AUX2 for the dual Schur orthogonality, four private lemmas for Parseval, three sub-lemmas for the diagonal/off-diagonal split, the typed Large Sieve interface and the coefficient energy bound for the effective layer. Monolithic proof attempts failed opaquely; decomposed ones surfaced specific obstacles that could be addressed locally.
+
+\textbf{Audit before commit.} Every closure was followed by a full audit run (\verb|lake build TS6| + \verb|horizon-proof-agent|) before the corresponding Git commit. The audit reports document the trajectory $8 \to 0$ with each intermediate state machine-verified.
+
+% =============================================================
+\section{Conclusion}\label{sec:conclusion}
+% =============================================================
+
+TS6 v4.1 closes all five modules of the Lean~4 certification layer for the exact, spectral, and conditional effective Dirichlet-character variance identities of the TS programme: four are \GREEN{} unconditional and one is \GREENC{}. The four exact and spectral modules (TS6-A through TS6-D) are GREEN: closed without \texttt{sorry} and without added axioms. The fifth module (TS6-E/F/G, effective bounds) is GREEN-conditional: closed without \texttt{sorry} but parameterized by typed external interfaces \verb|ChebyshevThetaBound| and \verb|LargeSieveInequality|. The latter is intentionally uninhabited within TS6 and represents the formal interface to the analytic content of the large sieve inequality.
+
+The status of the formalization with respect to the broader TS programme can be stated precisely:
+
+\begin{itemize}[noitemsep]
+\item \textbf{TS6 v4.1 is sorry-free in its certified Lean source.}
+\item \textbf{TS6 v4.1 closes the cascade ``analytic interfaces $\Rightarrow$ effective bounds'' relative to two typed inputs.}
+\item \textbf{TS6 v4.1 does not prove the Large Sieve inequality, Chebyshev's $\theta$-bound, Goldbach's conjecture, or any conjecture of the TS programme.}
+\end{itemize}
+
+The development is reproducible, auditable, and publicly archived. The boundary between what is formally proved within TS6 and what is left to external analytic input is, in v4.1, statically enforced rather than textually documented --- a small but cumulative gain in the discipline of analytic-number-theoretic formalization.
+
+% =============================================================
+\appendix
+% =============================================================
+
+\section{Lean file inventory}\label{app:files}
+
+\begin{table}[h]
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{File} & \textbf{Layer} & \textbf{Status} \\
+\midrule
+\verb|TS6/Exact/FiniteCharacterVariance.lean| & TS6-A & GREEN, 0 sorry \\
+\verb|TS6/Exact/DirichletVariance.lean| & TS6-B & GREEN, 0 sorry \\
+\verb|TS6/Exact/CenteringShift.lean| & TS6-C & GREEN, 0 sorry \\
+\verb|TS6/Structure/RankinSelbergDecomp.lean| & TS6-D & GREEN, 0 sorry \\
+\verb|TS6/Effective/AveragedBounds.lean| & TS6-E/F/G & GREEN CONDITIONAL, 0 sorry \\
+\bottomrule
+\end{tabular}
+\caption{TS6 v4.1 file inventory. Source available at \url{https://github.com/seisner1967-hash/ts6-lean-formalization}.}\label{tab:files}
+\end{table}
+
+\section{Key Lean signatures (verbatim from the source)}\label{app:lean}
+
+\subsection{TS2 exact identity}
+
+\begin{lstlisting}
+theorem TS2_exact_identity
+    (a : N -> C) (q : N) (hq : 2 <= q) (S : Finset N) :
+    AWstar a q S = CW a q S
+\end{lstlisting}
+
+\subsection{Rankin--Selberg decomposition}
+
+\begin{lstlisting}
+theorem rankin_selberg_decomposition
+    (a : N -> C) (q : N) [NeZero q] (hq : 2 <= q) (S : Finset N) :
+    AWstar a q S =
+      DW a q S - (Complex.normSq (T_0 a q S)) / (Nat.totient q : R) + (SW a q S).re
+\end{lstlisting}
+
+\subsection{Parseval/Plancherel for finite abelian groups}
+
+\begin{lstlisting}
+theorem parseval_identity
+    {G : Type*} [CommGroup G] [Fintype G] [DecidableEq G]
+    (f : G -> C) :
+    variance f = characterSideMS f
+\end{lstlisting}
+
+\subsection{Typed Large Sieve interface}
+
+\begin{lstlisting}
+structure LargeSieveInequality where
+  bound :
+    forall (a : N -> C) (x : R) (Q : N) (S : Finset N),
+      2 <= x ->
+      (forall n in S, ((n : R) <= 2*x)) ->
+      weightedPrimeCappedSum a Q S <=
+        ((Q : R)^2 + 2*x) * coeffEnergy a S
+\end{lstlisting}
+
+\subsection{TS4 weighted effective bound (GREEN-conditional)}
+
+\begin{lstlisting}
+theorem TS4_weighted_effective_bound
+    (chebyshev : ChebyshevThetaBound)
+    (largeSieve : LargeSieveInequality)
+    (Wi : WeightInput) (x : R) (Q : N) (S : Finset N)
+    (hx : 2 <= x) (hQ : 2 <= Q)
+    (hS : forall p in S, p.Prime /\ x/2 <= p /\ (p : R) <= 2*x) :
+    weightedPrimeCappedSum (weightCoeffs Wi.W x) Q S <=
+      4 * WsupNormSq Wi.W * ((Q : R)^2 + 2*x) * x * Real.log (2*x)
+\end{lstlisting}
+
+\section{Freeze manifest excerpt}\label{app:manifest}
+
+\begin{lstlisting}[language={}]
+TS6 v4.1 - Lean 4 GREEN CONDITIONAL Freeze Manifest
+Date: 2026-05-03
+
+Lean toolchain: leanprover/lean4:v4.16.0
+Mathlib revision: a6276f4c6097675b1cf5ebd49b1146b735f38c02
+Build status: SUCCESS
+
+Status table:
+  TS6-A FiniteCharacterVariance.lean   GREEN              0 sorry
+  TS6-B DirichletVariance.lean         GREEN              0 sorry
+  TS6-C CenteringShift.lean            GREEN              0 sorry
+  TS6-D RankinSelbergDecomp.lean       GREEN              0 sorry
+  TS6-E/F/G AveragedBounds.lean        GREEN CONDITIONAL  0 sorry
+
+Primary REAL sorry: 0
+Primary REAL axiom: 0
+sorryAx in cascade: NONE
+
+#print axioms (effective theorems):
+  [propext, Classical.choice, Quot.sound]
+\end{lstlisting}
+
+\section{Reproduction commands}\label{app:reproduce}
+
+The following self-contained command sequence reproduces the verification of TS6 v4.1 from a clean shell:
+
+\begin{lstlisting}[language=bash]
+# Clone the public archival repository
+git clone https://github.com/seisner1967-hash/ts6-lean-formalization
+cd ts6-lean-formalization
+
+# Verify the tag
+git checkout v4.1
+
+# Build (requires elan: https://leanprover-community.github.io/get_started.html)
+lake build TS6
+# Expected: Build SUCCESS
+
+# Verify zero primary sorry (POSIX-portable form)
+grep -rnE "^[[:space:]]*sorry[[:space:]]*$" TS6/
+# Expected: no output
+\end{lstlisting}
+
+To reproduce the audit of kernel axioms used by the three GREEN-conditional effective theorems, create a minimal Lean file at the repository root and run it through the project environment:
+
+\begin{lstlisting}[language=bash]
+cat > Axioms.lean <<'EOF'
+import TS6.Effective.AveragedBounds
+
+#print axioms TS6.Effective.TS4_weighted_effective_bound
+#print axioms TS6.Effective.TS4_unweighted_effective_bound
+#print axioms TS6.Effective.TS3_first_effective_bound
+EOF
+
+lake env lean Axioms.lean
+\end{lstlisting}
+
+Expected output, verbatim, for each of the three theorems:
+
+\begin{lstlisting}[language={}]
+'TS6.Effective.TS4_weighted_effective_bound' depends on axioms:
+[propext, Classical.choice, Quot.sound]
+'TS6.Effective.TS4_unweighted_effective_bound' depends on axioms:
+[propext, Classical.choice, Quot.sound]
+'TS6.Effective.TS3_first_effective_bound' depends on axioms:
+[propext, Classical.choice, Quot.sound]
+\end{lstlisting}
+
+The freeze manifest \texttt{TS6\_FROZEN\_v4.1\_2026-05-03.txt} (root of the repository) records SHA-256 hashes of the five primary source files for byte-level verification. The audit report \texttt{reports/report\_20260503T124108Z.md} (also at the root) contains the full output of \texttt{horizon-proof-agent v0.1.4} for this state.
+
+\medskip
+
+\noindent\textbf{Reference state.} Tag \texttt{v4.1}; commit \texttt{02a6ffa}; Lean toolchain \texttt{leanprover/lean4:v4.16.0}; Mathlib revision \texttt{a6276f4c6097675b1cf5ebd49b1146b735f38c02}.
+
+\bigskip
+\hrule
+\bigskip
+
+\noindent\textbf{End of TS6 v4.1.}
+
+\end{document}
